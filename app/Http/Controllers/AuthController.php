@@ -7,11 +7,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Http\JsonResponse;
 
 class AuthController extends Controller
 {
     // Register
-    public function register(Request $request)
+    public function register(Request $request): JsonResponse
     {
         $data = $request->validate([
             'name' => 'required|string|max:255',
@@ -29,13 +30,14 @@ class AuthController extends Controller
 
         return response()->json([
             'user' => $user,
-            'token' => $token,
-            'token_type' => 'bearer'
+            'access_token' => $token,
+            'token_type' => 'bearer',
+            'expires_in' => JWTAuth::factory()->getTTL() * 60
         ], 201);
     }
 
     // Login
-    public function login(Request $request)
+    public function login(Request $request): JsonResponse
     {
         $credentials = $request->validate([
             'email'=>'required|email',
@@ -52,7 +54,7 @@ class AuthController extends Controller
     }
 
     // Logout (invalidate token)
-    public function logout()
+    public function logout(): JsonResponse
     {
         auth('api')->logout();
 
@@ -60,12 +62,12 @@ class AuthController extends Controller
     }
 
     // Me
-    public function me()
+    public function me(): JsonResponse
     {
         return response()->json(auth('api')->user());
     }
 
-    protected function respondWithToken($token)
+    protected function respondWithToken($token): JsonResponse
     {
         return response()->json([
             'access_token' => $token,
