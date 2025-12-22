@@ -13,10 +13,5 @@ class Ticket extends Model
         'movie_title',
         'description',
         'file_path',
-        'studio',
-        'seat',
-        'show_time',
-        'price',
-        'user_name'
     ];
 }
