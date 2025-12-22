@@ -9,18 +9,24 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-   public function up()
+    public function up()
     {
-    Schema::table('tickets', function (Blueprint $table) {
-        $table->text('description')->after('movie_title');
-        });
+        if (Schema::hasTable('tickets')) {
+            if (!Schema::hasColumn('tickets', 'description')) {
+                Schema::table('tickets', function (Blueprint $table) {
+                    $table->text('description')->after('movie_title');
+                });
+            }
+        }
     }
 
     public function down()
     {
-    Schema::table('tickets', function (Blueprint $table) {
-        $table->dropColumn('description');
-        });
+        if (Schema::hasTable('tickets') && Schema::hasColumn('tickets', 'description')) {
+            Schema::table('tickets', function (Blueprint $table) {
+                $table->dropColumn('description');
+            });
+        }
     }
 
 };

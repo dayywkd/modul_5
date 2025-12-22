@@ -64,3 +64,23 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+---
+
+## Project UI (student dashboard)
+
+A simple frontend was added to demonstrate the API and satisfy the UAP requirements (Tailwind CSS + vanilla JS using Axios):
+
+- Pages: `/login`, `/register`, `/dashboard`
+- The UI uses Tailwind CDN and Axios CDN, and stores JWT in `localStorage` to call protected endpoints.
+
+Quick start
+
+1. Install JS deps (optionally for building assets):
+   - `npm install`
+2. Run vite (optional):
+   - `npm run dev`
+3. Start the Laravel server:
+   - `php artisan serve`
+
+Open `/login` to try registering and `/dashboard` to manage tickets and categories.

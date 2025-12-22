@@ -6,6 +6,7 @@ use App\Models\Ticket;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 class TicketController extends Controller
 {
@@ -24,10 +25,10 @@ class TicketController extends Controller
         return response()->json($tickets);
     }
 
-    // GET ONE
-    public function show($id): JsonResponse
+    // GET ONE (by slug)
+    public function show($slug): JsonResponse
     {
-        $ticket = Ticket::findOrFail($id);
+        $ticket = Ticket::where('slug', $slug)->firstOrFail();
         return response()->json($ticket);
     }
 
@@ -35,8 +36,16 @@ class TicketController extends Controller
     public function store(Request $req): JsonResponse
     {
         $data = $req->validate([
+            'category_id' => 'required|exists:categories,id',
             'movie_title' => 'required|string',
             'description' => 'nullable|string',
+            'studio' => 'nullable|string',
+            'seat' => 'nullable|string|max:10',
+            'show_time' => 'nullable|date',
+            'price' => 'nullable|integer',
+            'user_name' => 'nullable|string',
+            'event_name' => 'nullable|string',
+            'event_description' => 'nullable|string',
             // file optional, max size 5120 KB = 5 MB
             'file' => 'nullable|file|max:5120',
         ]);
@@ -55,13 +64,14 @@ class TicketController extends Controller
     }
 
     // UPDATE
-    public function update(Request $req, $id): JsonResponse
+    public function update(Request $req, $slug): JsonResponse
     {
-        $ticket = Ticket::findOrFail($id);
+        $ticket = Ticket::where('slug', $slug)->firstOrFail();
 
         $data = $req->validate([
             'movie_title' => 'sometimes|required|string',
             'description' => 'nullable|string',
+            'category_id' => 'sometimes|exists:categories,id',
             'file' => 'nullable|file|max:5120',
         ]);
 
@@ -83,9 +93,9 @@ class TicketController extends Controller
     }
 
     // DELETE
-    public function destroy($id): JsonResponse
+    public function destroy($slug): JsonResponse
     {
-        $ticket = Ticket::findOrFail($id);
+        $ticket = Ticket::where('slug', $slug)->firstOrFail();
 
         // delete file if exists
         if ($ticket->file_path && Storage::disk('public')->exists($ticket->file_path)) {

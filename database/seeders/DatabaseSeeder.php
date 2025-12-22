@@ -12,11 +12,18 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // \App\Models\User::factory(10)->create();
+        // Create some categories and tickets for development (idempotent)
+        $names = ['Action','Drama','Comedy','Romance','Sci-Fi'];
+        foreach ($names as $name) {
+            \App\Models\Category::firstOrCreate(['slug' => \Illuminate\Support\Str::slug($name)], ['name' => $name]);
+        }
 
-        // \App\Models\User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
+        \App\Models\Ticket::factory()->count(20)->create();
+
+        // Create a test user if not exists
+        \App\Models\User::firstOrCreate(
+            ['email' => 'test@example.com'],
+            ['name' => 'Test User', 'password' => bcrypt('password')]
+        );
     }
 }
