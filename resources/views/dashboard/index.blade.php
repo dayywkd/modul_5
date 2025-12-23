@@ -22,14 +22,13 @@
                     <span class="hidden sm:inline">Home</span>
                 </a>
 
-            <div class="flex items-center gap-4">
                 <div class="flex flex-col items-end hidden sm:flex leading-tight">
                     <span id="user-display-name" class="text-sm font-bold text-gray-800">Memuat...</span>
                     <span id="user-role-text" class="text-[10px] font-extrabold text-[#09A79A] uppercase tracking-widest">User</span>
                 </div>
 
                 <div class="h-10 w-10 rounded-full bg-teal-50 border-2 border-[#09A79A]/20 flex items-center justify-center text-[#09A79A] font-bold shadow-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                 </div>
@@ -88,13 +87,20 @@
                 <label class="block text-sm font-bold text-gray-700 mb-1">Kategori</label>
                 <select name="category_id" id="category_select" required class="w-full bg-gray-50 border-none px-5 py-3.5 rounded-2xl outline-none"></select>
             </div>
+
             <div id="status-group" class="hidden">
-                <label class="block text-sm font-bold text-gray-700 mb-1">Status (Admin)</label>
-                <select name="status" id="status_field" class="w-full bg-gray-50 border-none px-5 py-3.5 rounded-2xl outline-none">
+                <label class="block text-sm font-bold text-gray-700 mb-1">Status (Admin Only)</label>
+                <select name="status" id="status_field" class="w-full bg-gray-50 border-none px-5 py-3.5 rounded-2xl outline-none font-bold">
                     <option value="pending">Pending</option>
                     <option value="approved">Approved</option>
+                    <option value="in procces">In Procces</option>
                     <option value="rejected">Rejected</option>
                 </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">Deskripsi</label>
+                <textarea name="description" rows="3" class="w-full bg-gray-50 border-none px-5 py-3.5 rounded-2xl outline-none"></textarea>
             </div>
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-1">Poster</label>
@@ -110,13 +116,12 @@
 
 @push('scripts')
 <script>
-    // 1. Konsistensi Token
     const jwtToken = localStorage.getItem('jwt_token') || localStorage.getItem('token');
     if (!jwtToken) window.location = '/login';
 
     axios.defaults.headers.common['Authorization'] = `Bearer ${jwtToken}`;
 
-    // 2. Perbaikan Logout
+    // Logout
     const logoutBtn = document.getElementById('btn-logout-final');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
@@ -128,7 +133,7 @@
         });
     }
 
-    // 3. Load User Data
+    // Load User Data
     async function loadUser() {
         try {
             const res = await axios.get('/api/me');
@@ -136,11 +141,11 @@
             const isAdmin = res.data.email === 'admin@example.com';
             document.getElementById('user-role-text').innerText = isAdmin ? 'Administrator' : 'User';
             document.getElementById('dashboard-type-text').innerText = isAdmin ? 'Admin Dashboard' : 'User Dashboard';
-            window.userIsAdmin = isAdmin;
+            window.userIsAdmin = isAdmin; // Simpan status admin secara global
         } catch (e) { window.location = '/login'; }
     }
 
-    // 4. Perbaikan Foto (Fallback jika storage:link belum jalan)
+    // Load Tickets
     async function loadTickets() {
         const container = document.getElementById('tickets-list');
         container.innerHTML = '<p class="col-span-full text-center">Memuat...</p>';
@@ -148,8 +153,13 @@
             const res = await axios.get('/api/tickets');
             container.innerHTML = '';
             res.data.data.forEach(t => {
-                // Pastikan URL storage benar
                 const imgPath = t.file_path ? `/storage/${t.file_path}` : 'https://via.placeholder.com/400x600?text=Cinebox';
+
+                // Perbaikan warna status UI
+                let sClass = 'bg-yellow-50 text-yellow-600';
+                if(t.status === 'approved') sClass = 'bg-green-50 text-green-600';
+                if(t.status === 'in procces') sClass = 'bg-blue-50 text-blue-600';
+                if(t.status === 'rejected') sClass = 'bg-red-50 text-red-600';
 
                 container.innerHTML += `
                 <div class="bg-white rounded-[2rem] overflow-hidden shadow-lg border border-gray-50 flex flex-col">
@@ -158,7 +168,8 @@
                     </div>
                     <div class="p-6 flex-1 flex flex-col">
                         <span class="text-[10px] font-black text-[#09A79A] uppercase mb-1">${t.category?.name || 'Film'}</span>
-                        <h3 class="font-bold text-gray-800 mb-4">${t.movie_title}</h3>
+                        <h3 class="font-bold text-gray-800 mb-2">${t.movie_title}</h3>
+                        <div class="mb-4"><span class="text-[9px] font-black px-2 py-1 rounded-lg border ${sClass} uppercase">${t.status}</span></div>
                         <div class="mt-auto flex justify-between border-t pt-4">
                             <button class="text-[10px] font-black text-gray-400 hover:text-[#09A79A] uppercase" onclick="editTicket('${t.slug}')">Detail</button>
                             <button class="text-[10px] font-black text-gray-300 hover:text-red-500 uppercase" onclick="deleteTicket('${t.slug}')">Hapus</button>
@@ -169,7 +180,6 @@
         } catch(e) { container.innerHTML = 'Gagal memuat data.'; }
     }
 
-    // Fungsi Global untuk Button
     window.editTicket = async (slug) => {
         const res = await axios.get(`/api/tickets/${slug}`);
         openModal('update', res.data);
@@ -182,38 +192,66 @@
         }
     };
 
-    // Modal Logic
     const modal = document.getElementById('modal');
     const form = document.getElementById('ticket-form');
+
     function openModal(mode, data = null) {
         form.reset();
         form.dataset.action = mode;
         const statusGrp = document.getElementById('status-group');
+
         if(mode === 'update') {
-            if(window.userIsAdmin) statusGrp.classList.remove('hidden');
+            // Dropdown status hanya muncul jika user adalah Admin
+            if(window.userIsAdmin) {
+                statusGrp.classList.remove('hidden');
+            } else {
+                statusGrp.classList.add('hidden');
+            }
+
             form.movie_title.value = data.movie_title;
+            form.description.value = data.description;
             form.category_id.value = data.category_id;
             document.getElementById('status_field').value = data.status;
             form.dataset.slug = data.slug;
-        } else { statusGrp.classList.add('hidden'); }
+            document.getElementById('modal-title').innerText = 'Edit Request';
+        } else {
+            // Sembunyikan status saat membuat request baru
+            statusGrp.classList.add('hidden');
+            document.getElementById('modal-title').innerText = 'Request Film Baru';
+        }
         modal.classList.replace('hidden', 'flex');
     }
+
     window.closeModal = () => modal.classList.replace('flex', 'hidden');
 
     form.onsubmit = async (e) => {
         e.preventDefault();
         const fd = new FormData(form);
-        if(form.dataset.action === 'update') fd.append('_method', 'PUT');
-        const url = form.dataset.action === 'create' ? '/api/tickets' : `/api/tickets/${form.dataset.slug}`;
-        await axios.post(url, fd);
-        closeModal(); loadTickets();
+        const action = form.dataset.action;
+
+        if(action === 'update') {
+            fd.append('_method', 'PUT');
+            // Pastikan nilai status ikut terkirim jika admin mengedit
+            if(window.userIsAdmin) {
+                fd.append('status', document.getElementById('status_field').value);
+            }
+        }
+
+        try {
+            const url = action === 'create' ? '/api/tickets' : `/api/tickets/${form.dataset.slug}`;
+            await axios.post(url, fd);
+            closeModal();
+            loadTickets();
+        } catch(e) {
+            alert('Gagal menyimpan: ' + (e.response?.data?.message || 'Error'));
+        }
     };
 
-    // Load Initial
+    // Initialize
     loadUser();
     loadTickets();
 
-    // Load Kategori ke Select
+    // Categories
     axios.get('/api/categories').then(res => {
         const sel = document.getElementById('category_select');
         const list = document.getElementById('categories-list');

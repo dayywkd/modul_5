@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 
 class TicketController extends Controller
 {
-    // GET ALL - Sesuai syarat manajemen data relasi
+    // GET ALL - Menampilkan data dengan relasi kategori
     public function index(Request $req): JsonResponse
     {
         $limit = $req->limit ?? 10;
@@ -27,14 +27,14 @@ class TicketController extends Controller
         return response()->json($tickets);
     }
 
-    // GET ONE - Menggunakan Slug sebagai identifier unik
+    // GET ONE - Menggunakan Slug
     public function show($slug): JsonResponse
     {
         $ticket = Ticket::with('category')->where('slug', $slug)->firstOrFail();
         return response()->json($ticket);
     }
 
-    // CREATE - Terproteksi JWT & Mengelola Relasi
+    // CREATE - Otomatis status 'pending'
     public function store(Request $req): JsonResponse
     {
         $data = $req->validate([
@@ -45,7 +45,7 @@ class TicketController extends Controller
         ]);
 
         $data['slug'] = Str::slug($req->movie_title) . '-' . Str::random(5);
-        $data['status'] = 'pending';
+        $data['status'] = 'pending'; // User request otomatis pending
         $data['user_name'] = $req->user()->name;
 
         if ($req->hasFile('file')) {
@@ -54,7 +54,7 @@ class TicketController extends Controller
 
         $ticket = Ticket::create($data);
 
-        // Update stok/count pada tabel relasi
+        // Update count kategori (Relasi sesuai modul UAP)
         $category = Category::find($data['category_id']);
         if ($category) {
             $category->increment('request_count');
@@ -66,27 +66,32 @@ class TicketController extends Controller
         ], 201);
     }
 
-    // UPDATE - Menggunakan Slug & Proteksi Admin
+    // UPDATE - Proteksi Admin & Mendukung status 'in procces'
     public function update(Request $req, $slug): JsonResponse
     {
-        if ($req->user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized: Admin access required'], 403);
-        }
-
         $ticket = Ticket::where('slug', $slug)->firstOrFail();
 
-        $data = $req->validate([
+        // Validasi data
+        $rules = [
             'category_id' => 'sometimes|exists:categories,id',
             'movie_title' => 'sometimes|required|string',
             'description' => 'nullable|string',
-            'status'      => 'sometimes|in:pending,approved,rejected',
             'file'        => 'nullable|file|max:5120',
-        ]);
+        ];
 
+        // Hanya admin yang bisa mengubah status (in procces ditambahkan)
+        if ($req->user()->email === 'admin@example.com') {
+            $rules['status'] = 'sometimes|in:pending,approved,in procces,rejected';
+        }
+
+        $data = $req->validate($rules);
+
+        // Update slug jika judul berubah
         if (isset($data['movie_title'])) {
             $data['slug'] = Str::slug($data['movie_title']) . '-' . Str::random(5);
         }
 
+        // Penanganan File
         if ($req->hasFile('file')) {
             if ($ticket->file_path && Storage::disk('public')->exists($ticket->file_path)) {
                 Storage::disk('public')->delete($ticket->file_path);
@@ -102,18 +107,17 @@ class TicketController extends Controller
         ]);
     }
 
-    // DELETE - PERBAIKAN: Menggunakan $slug agar sesuai dengan URL
+    // DELETE - Proteksi Admin
     public function destroy(Request $req, $slug): JsonResponse
     {
-        // Pastikan proteksi admin
-        if ($req->user()->role !== 'admin') {
+        // Proteksi Role sesuai modul
+        if ($req->user()->email !== 'admin@example.com') {
             return response()->json(['message' => 'Unauthorized: Admin access required'], 403);
         }
 
-        // Cari berdasarkan SLUG, bukan ID agar tidak error
         $ticket = Ticket::where('slug', $slug)->firstOrFail();
 
-        // Update logic tabel relasi
+        // Update logic tabel relasi (Decrement)
         $category = Category::find($ticket->category_id);
         if ($category) {
             $category->decrement('request_count');
