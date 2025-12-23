@@ -49,7 +49,6 @@
     </div>
 
     <nav id="nav-menu" class="hidden md:flex items-center space-x-6">
-      <a href="#" class="text-gray-700 hover:text-black">Promo</a>
       <div id="guest-nav" class="flex items-center space-x-6">
         <a href="{{ route('login') }}" class="text-gray-700 hover:text-black">Login</a>
         <a href="{{ route('register') }}" class="bg-tealbrand text-white px-5 py-2 rounded-full font-semibold hover:bg-teal-700">Buat akun</a>
@@ -157,7 +156,7 @@
   <section id="about" class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
     <h2 class="text-2xl font-bold text-center mb-6">Tentang Cinebox</h2>
     <p class="text-gray-600 text-center max-w-3xl mx-auto">
-      Cinebox adalah platform modern untuk memesan tiket bioskop secara online. 
+      Cinebox adalah platform modern untuk memesan tiket bioskop secara online.
       Kami menghadirkan pengalaman menonton yang lebih mudah, cepat, dan aman.
     </p>
   </section>

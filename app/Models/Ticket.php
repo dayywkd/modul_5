@@ -12,6 +12,7 @@ class Ticket extends Model
     protected $fillable = [
         'category_id',
         'slug',
+        'status',
         'movie_title',
         'description',
         'studio',

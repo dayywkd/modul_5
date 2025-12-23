@@ -28,6 +28,7 @@
     <div id="toast" style="display:none"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    @stack('scripts')
     <script>
         // Small auth helper to manage token/UI
         function setToken(token) {

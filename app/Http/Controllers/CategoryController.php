@@ -10,7 +10,7 @@ class CategoryController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Category::orderBy('name')->get());
+        return response()->json(Category::withCount('tickets as request_count')->orderBy('name')->get());
     }
 
     public function show($slug): JsonResponse

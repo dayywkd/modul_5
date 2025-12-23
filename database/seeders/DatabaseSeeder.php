@@ -23,7 +23,13 @@ class DatabaseSeeder extends Seeder
         // Create a test user if not exists
         \App\Models\User::firstOrCreate(
             ['email' => 'test@example.com'],
-            ['name' => 'Test User', 'password' => bcrypt('password')]
+            ['name' => 'Test User', 'password' => bcrypt('password'), 'role' => 'user']
+        );
+
+        // Create an ADMIN user
+        \App\Models\User::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            ['name' => 'Admin User', 'password' => bcrypt('password'), 'role' => 'admin']
         );
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\JsonResponse;
@@ -10,100 +11,122 @@ use Illuminate\Support\Str;
 
 class TicketController extends Controller
 {
-    // GET ALL (pagination, search, orderBy, sortBy)
+    // GET ALL - Sesuai syarat manajemen data relasi
     public function index(Request $req): JsonResponse
     {
         $limit = $req->limit ?? 10;
         $search = $req->search ?? '';
         $orderBy = $req->orderBy ?? 'id';
-        $sortBy = $req->sortBy ?? 'ASC';
+        $sortBy = $req->sortBy ?? 'DESC';
 
-        $tickets = Ticket::where('movie_title', 'LIKE', "%$search%")
+        $tickets = Ticket::with('category')
+            ->where('movie_title', 'LIKE', "%$search%")
             ->orderBy($orderBy, $sortBy)
             ->paginate($limit);
 
         return response()->json($tickets);
     }
 
-    // GET ONE (by slug)
+    // GET ONE - Menggunakan Slug sebagai identifier unik
     public function show($slug): JsonResponse
     {
-        $ticket = Ticket::where('slug', $slug)->firstOrFail();
+        $ticket = Ticket::with('category')->where('slug', $slug)->firstOrFail();
         return response()->json($ticket);
     }
 
-    // CREATE
+    // CREATE - Terproteksi JWT & Mengelola Relasi
     public function store(Request $req): JsonResponse
     {
         $data = $req->validate([
             'category_id' => 'required|exists:categories,id',
             'movie_title' => 'required|string',
             'description' => 'nullable|string',
-            'studio' => 'nullable|string',
-            'seat' => 'nullable|string|max:10',
-            'show_time' => 'nullable|date',
-            'price' => 'nullable|integer',
-            'user_name' => 'nullable|string',
-            'event_name' => 'nullable|string',
-            'event_description' => 'nullable|string',
-            // file optional, max size 5120 KB = 5 MB
-            'file' => 'nullable|file|max:5120',
+            'file'        => 'nullable|file|max:5120',
         ]);
 
+        $data['slug'] = Str::slug($req->movie_title) . '-' . Str::random(5);
+        $data['status'] = 'pending';
+        $data['user_name'] = $req->user()->name;
+
         if ($req->hasFile('file')) {
-            $path = $req->file('file')->store('tickets', 'public');
-            $data['file_path'] = $path;
+            $data['file_path'] = $req->file('file')->store('tickets', 'public');
         }
 
         $ticket = Ticket::create($data);
 
+        // Update stok/count pada tabel relasi
+        $category = Category::find($data['category_id']);
+        if ($category) {
+            $category->increment('request_count');
+        }
+
         return response()->json([
-            "message" => "Ticket created",
-            "data" => $ticket
+            'message' => 'Ticket created successfully',
+            'data' => $ticket
         ], 201);
     }
 
-    // UPDATE
+    // UPDATE - Menggunakan Slug & Proteksi Admin
     public function update(Request $req, $slug): JsonResponse
     {
+        if ($req->user()->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized: Admin access required'], 403);
+        }
+
         $ticket = Ticket::where('slug', $slug)->firstOrFail();
 
         $data = $req->validate([
+            'category_id' => 'sometimes|exists:categories,id',
             'movie_title' => 'sometimes|required|string',
             'description' => 'nullable|string',
-            'category_id' => 'sometimes|exists:categories,id',
-            'file' => 'nullable|file|max:5120',
+            'status'      => 'sometimes|in:pending,approved,rejected',
+            'file'        => 'nullable|file|max:5120',
         ]);
 
+        if (isset($data['movie_title'])) {
+            $data['slug'] = Str::slug($data['movie_title']) . '-' . Str::random(5);
+        }
+
         if ($req->hasFile('file')) {
-            // delete old file if exists
             if ($ticket->file_path && Storage::disk('public')->exists($ticket->file_path)) {
                 Storage::disk('public')->delete($ticket->file_path);
             }
-            $path = $req->file('file')->store('tickets', 'public');
-            $data['file_path'] = $path;
+            $data['file_path'] = $req->file('file')->store('tickets', 'public');
         }
 
         $ticket->update($data);
 
         return response()->json([
-            "message" => "Ticket updated",
-            "data" => $ticket
+            'message' => 'Ticket updated successfully',
+            'data' => $ticket
         ]);
     }
 
-    // DELETE
-    public function destroy($slug): JsonResponse
+    // DELETE - PERBAIKAN: Menggunakan $slug agar sesuai dengan URL
+    public function destroy(Request $req, $slug): JsonResponse
     {
+        // Pastikan proteksi admin
+        if ($req->user()->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized: Admin access required'], 403);
+        }
+
+        // Cari berdasarkan SLUG, bukan ID agar tidak error
         $ticket = Ticket::where('slug', $slug)->firstOrFail();
 
-        // delete file if exists
+        // Update logic tabel relasi
+        $category = Category::find($ticket->category_id);
+        if ($category) {
+            $category->decrement('request_count');
+        }
+
         if ($ticket->file_path && Storage::disk('public')->exists($ticket->file_path)) {
             Storage::disk('public')->delete($ticket->file_path);
         }
 
         $ticket->delete();
 
-        return response()->json(["message" => "Ticket deleted"]);
+        return response()->json([
+            'message' => 'Ticket deleted successfully'
+        ]);
     }
 }
